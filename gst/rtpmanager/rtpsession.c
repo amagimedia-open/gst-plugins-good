@@ -822,6 +822,9 @@ rtp_session_set_property (GObject * object, guint prop_id,
       if (sess->callbacks.reconsider)
         sess->callbacks.reconsider (sess, sess->reconsider_user_data);
       break;
+    case PROP_RTCP_FEEDBACK_RETENTION_WINDOW:
+      sess->rtcp_feedback_retention_window = g_value_get_uint64 (value);
+      break;
     case PROP_RTCP_IMMEDIATE_FEEDBACK_THRESHOLD:
       sess->rtcp_immediate_feedback_threshold = g_value_get_uint (value);
       break;
@@ -900,6 +903,9 @@ rtp_session_get_property (GObject * object, guint prop_id,
       break;
     case PROP_RTCP_MIN_INTERVAL:
       g_value_set_uint64 (value, sess->stats.min_interval * GST_SECOND);
+      break;
+    case PROP_RTCP_FEEDBACK_RETENTION_WINDOW:
+      g_value_set_uint64 (value, sess->rtcp_feedback_retention_window);
       break;
     case PROP_RTCP_IMMEDIATE_FEEDBACK_THRESHOLD:
       g_value_set_uint (value, sess->rtcp_immediate_feedback_threshold);
@@ -2764,7 +2770,7 @@ rtp_session_process_feedback (RTPSession * sess, GstRTCPPacket * packet,
       gst_buffer_unref (fci_buffer);
   }
 
-  if (src && sess->rtcp_feedback_retention_window) {
+  if (src && sess->rtcp_feedback_retention_window != GST_CLOCK_TIME_NONE) {
     rtp_source_retain_rtcp_packet (src, packet, pinfo->running_time);
   }
 
@@ -3577,8 +3583,8 @@ session_cleanup (const gchar * key, RTPSource * source, ReportData * data)
   /* check for outdated collisions */
   if (source->internal) {
     GST_DEBUG ("Timing out collisions for %x", source->ssrc);
-    rtp_source_timeout (source, data->current_time,
-        data->running_time - sess->rtcp_feedback_retention_window);
+    rtp_source_timeout (source, data->current_time, data->running_time,
+        sess->rtcp_feedback_retention_window);
   }
 
   /* nothing else to do when without RTCP */
